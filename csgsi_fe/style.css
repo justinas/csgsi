@@ -1,0 +1,56 @@
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  align-items: center;
+  display: flex;
+  justify-content: center;
+
+  background: linear-gradient(to bottom right, #444444, #009a5b);
+  font-family: sans-serif;
+  font-size: 1.5rem;
+}
+
+main {
+    width: 100%;
+}
+
+#players {
+    width: 100%;
+    display: flex;
+    justify-content: space-around;
+}
+
+.team {
+    height: 100%;
+}
+
+.team header {
+    font-weight: bold;
+}
+
+.player {
+    margin: 32px 0;
+}
+
+.player.dead {
+    opacity: 0.33;
+}
+
+.player .match-stats {
+    display: flex;
+    gap: 32px;
+    margin: 12px 0;
+    padding: 0;
+}
+
+.player .match-stats li {
+    display: flex; 
+    margin: 0;
+    gap: 8px;
+
+    list-style: none;
+}
