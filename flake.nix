@@ -5,8 +5,9 @@
   inputs.nixpkgs-unstable.url = "github:NixOS/nixpkgs/nixos-unstable-small";
   inputs.rust-overlay.url = "github:oxalica/rust-overlay";
 
-  outputs = { nixpkgs, nixpkgs-unstable, rust-overlay, ... }:
+  outputs = { nixpkgs, nixpkgs-unstable, rust-overlay, self, ... }:
     let
+      inherit (pkgs) lib;
       pkgs = import nixpkgs {
         inherit system;
         overlays = [
@@ -30,6 +31,14 @@
         cargo = rustc;
         inherit rustc;
       };
+      src = lib.cleanSourceWith {
+        filter = name: _type:
+          let
+            baseName = baseNameOf (toString name);
+          in
+            ! (lib.hasSuffix ".nix" baseName);
+        src = lib.cleanSource ./.;
+      };
       system = "x86_64-linux";
     in
     rec {
@@ -40,26 +49,34 @@
         ];
       };
 
-      # This check abuses `buildRustPackage` to set up cargo deps etc.,
-      # then instead of actually building, just runs lint tools.
-      # There might be a better way by manually using cargo hooks
-      # https://github.com/NixOS/nixpkgs/blob/master/doc/languages-frameworks/rust.section.md#hooks-hooks
-      checks."${system}".default = packages."${system}".csgsi-be.overrideAttrs {
-        buildPhase = ''
-          touch $out
-        '';
-        checkPhase = ''
-          cargo fmt --check
-          #cargo clippy
-        '';
-        installPhase = ''
-          echo "All good."
-        '';
+      # This replicates just enough of buildRustPackage,
+      # i.e. the Cargo vendoring stuff, so that we can run clippy, etc.
+      checks."${system}" = rec {
+        default = lint;
+        lint = pkgs.stdenvNoCC.mkDerivation {
+          name = "csgsi-lint";
+          inherit src;
+          nativeBuildInputs = with rustPlatform; [ cargoSetupHook rustc ];
+          cargoDeps = rustPlatform.importCargoLock {
+            lockFile = ./Cargo.lock;
+          };
+
+          buildPhase = "";
+          doCheck = true;
+          checkPhase = ''
+            cargo fmt --check
+            cargo clippy
+          '';
+          installPhase = ''
+            touch $out
+            echo "All good."
+          '';
+        };
       };
 
       packages."${system}" = rec {
-        csgsi-be = pkgs.callPackage ./packages/csgsi-be.nix { inherit rustPlatform; };
-        csgsi-fe = pkgs.callPackage ./packages/csgsi-fe.nix { inherit rustPlatform; };
+        csgsi-be = pkgs.callPackage ./packages/csgsi-be.nix { inherit rustPlatform src; };
+        csgsi-fe = pkgs.callPackage ./packages/csgsi-fe.nix { inherit rustPlatform src; };
         default = pkgs.symlinkJoin {
           name = "csgsi";
           paths = [ csgsi-be csgsi-fe ];

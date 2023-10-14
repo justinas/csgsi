@@ -1,16 +1,9 @@
-{ lib, rustPlatform, trunk-ng, wasm-bindgen-cli }:
+{ src, rustPlatform, trunk-ng, wasm-bindgen-cli }:
 rustPlatform.buildRustPackage {
   pname = "csgsi-fe";
   version = "0.1.0";
 
-  src = lib.cleanSourceWith {
-    filter = name: _type:
-      let
-        baseName = baseNameOf (toString name);
-      in
-        ! (lib.hasSuffix ".nix" baseName);
-    src = lib.cleanSource ../.;
-  };
+  inherit src;
   cargoLock = {
     lockFile = ../Cargo.lock;
   };
