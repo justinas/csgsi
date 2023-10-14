@@ -32,12 +32,29 @@
       };
       system = "x86_64-linux";
     in
-    {
+    rec {
       devShells."${system}".default = pkgs.mkShell {
         buildInputs = with pkgs; [
           rustc
           trunk
         ];
+      };
+
+      # This check abuses `buildRustPackage` to set up cargo deps etc.,
+      # then instead of actually building, just runs lint tools.
+      # There might be a better way by manually using cargo hooks
+      # https://github.com/NixOS/nixpkgs/blob/master/doc/languages-frameworks/rust.section.md#hooks-hooks
+      checks."${system}".default = packages."${system}".csgsi-be.overrideAttrs {
+        buildPhase = ''
+          touch $out
+        '';
+        checkPhase = ''
+          cargo fmt --check
+          #cargo clippy
+        '';
+        installPhase = ''
+          echo "All good."
+        '';
       };
 
       packages."${system}" = rec {
