@@ -14,7 +14,7 @@ use axum::{
     Router,
 };
 use futures::StreamExt;
-use tokio::sync::broadcast;
+use tokio::sync::broadcast::{self, error::RecvError};
 use tower_http::{
     services::ServeDir,
     trace::{DefaultMakeSpan, TraceLayer},
@@ -102,8 +102,9 @@ async fn handle_socket(
                     break;
                 }
             }
-            Err(e) => {
-                error!("error receiving broadcast: {:?}", e);
+            Err(RecvError::Lagged(n)) => error!("{} dropped {} messages due to lag", who, n),
+            Err(RecvError::Closed) => {
+                error!("receiver closed");
                 break;
             }
         }
@@ -120,7 +121,7 @@ async fn main() {
         .with(tracing_subscriber::fmt::layer())
         .init();
 
-    let (broadcaster, _rx) = broadcast::channel::<Message>(2);
+    let (broadcaster, _rx) = broadcast::channel::<Message>(32);
 
     let assets_dir = "./assets";
     let app = Router::new()
