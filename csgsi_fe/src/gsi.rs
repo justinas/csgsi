@@ -3,7 +3,7 @@
 use serde::Deserialize;
 use std::collections::HashMap;
 
-#[derive(Deserialize)]
+#[derive(Clone, Default, PartialEq, Deserialize)]
 pub struct GameState {
     #[serde(rename = "allplayers")]
     pub players: HashMap<u64, Player>,
@@ -17,7 +17,7 @@ impl GameState {
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, PartialEq, Deserialize)]
 pub struct Player {
     pub name: String,
     pub observer_slot: u8,
@@ -26,10 +26,20 @@ pub struct Player {
     pub match_stats: PlayerStats,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize)]
 pub enum Team {
     T,
     CT,
+}
+
+impl Team {
+    pub fn from_log_name(s: &str) -> Option<Team> {
+        match s {
+            "TERRORIST" => Some(Team::T),
+            "CT" => Some(Team::CT),
+            _ => None,
+        }
+    }
 }
 
 impl std::fmt::Display for Team {
@@ -41,12 +51,12 @@ impl std::fmt::Display for Team {
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, PartialEq, Deserialize)]
 pub struct PlayerState {
     pub health: u64,
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, PartialEq, Deserialize)]
 pub struct PlayerStats {
     pub kills: u64,
     pub assists: u64,

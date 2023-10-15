@@ -1,6 +1,10 @@
 mod error;
 
-use std::{net::SocketAddr, sync::Arc};
+use std::{
+    io::{BufRead, Cursor},
+    net::SocketAddr,
+    sync::Arc,
+};
 
 use anyhow::anyhow;
 use axum::{
@@ -18,9 +22,10 @@ use tower_http::{
 use tracing::{error, info};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
+use csgsi_shared::Message;
 use error::AppError;
 
-type Broadcaster = broadcast::Sender<Vec<u8>>;
+type Broadcaster = broadcast::Sender<Message>;
 
 async fn gsi_handler(
     State(broadcaster): State<Arc<Broadcaster>>,
@@ -31,7 +36,35 @@ async fn gsi_handler(
         body.extend(maybe_bytes.map_err(|e| anyhow!(e))?);
     }
     if !body.is_empty() {
-        if let Err(e) = broadcaster.send(body) {
+        let string = String::from_utf8(body)?;
+        let message = Message::from_state_payload(string)?;
+        if let Err(e) = broadcaster.send(message) {
+            error!("failed to broadcast: {:?}", e);
+        }
+    }
+
+    Ok(())
+}
+
+async fn log_handler(
+    State(broadcaster): State<Arc<Broadcaster>>,
+    mut b: BodyStream,
+) -> Result<(), AppError> {
+    let mut body: Vec<u8> = vec![];
+    while let Some(maybe_bytes) = b.next().await {
+        body.extend(maybe_bytes.map_err(|e| anyhow!(e))?);
+    }
+    let reader = Cursor::new(body);
+    for line in reader.lines() {
+        let line = match line {
+            Ok(l) => l,
+            Err(e) => {
+                error!("failed to read a log line: {:?}", e);
+                continue;
+            }
+        };
+        let message = Message::from_log(line);
+        if let Err(e) = broadcaster.send(message) {
             error!("failed to broadcast: {:?}", e);
         }
     }
@@ -50,18 +83,22 @@ async fn ws_handler(
 }
 
 async fn handle_socket(
-    mut rx: broadcast::Receiver<Vec<u8>>,
+    mut rx: broadcast::Receiver<Message>,
     mut socket: WebSocket,
     who: SocketAddr,
 ) {
     loop {
         match rx.recv().await {
-            Ok(b) => {
-                let msg = String::from_utf8(b)
-                    .expect("cs2 did not send valid UTF-8")
-                    .into();
-                if let Err(e) = socket.send(msg).await {
-                    error!("error sending to socket {}: {:?}", who, e);
+            Ok(msg) => {
+                let payload = match serde_json::to_string(&msg) {
+                    Ok(p) => p,
+                    Err(e) => {
+                        error!("error serializing a message: {}", e);
+                        continue;
+                    }
+                };
+                if let Err(e) = socket.send(payload.into()).await {
+                    error!("error sending a message to socket {}: {:?}", who, e);
                     break;
                 }
             }
@@ -83,12 +120,13 @@ async fn main() {
         .with(tracing_subscriber::fmt::layer())
         .init();
 
-    let (broadcaster, _rx) = broadcast::channel::<Vec<u8>>(2);
+    let (broadcaster, _rx) = broadcast::channel::<Message>(2);
 
     let assets_dir = "./assets";
     let app = Router::new()
         .fallback_service(ServeDir::new(assets_dir).append_index_html_on_directories(true))
         .route("/gsi", post(gsi_handler))
+        .route("/log", post(log_handler))
         .route("/ws", get(ws_handler))
         .layer(
             TraceLayer::new_for_http()

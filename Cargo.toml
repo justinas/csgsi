@@ -1,3 +1,3 @@
 [workspace]
-members = [ "csgsi_be", "csgsi_fe" ]
+members = [ "csgsi_be", "csgsi_fe", "csgsi_shared" ]
 resolver = "2"

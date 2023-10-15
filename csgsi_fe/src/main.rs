@@ -1,5 +1,6 @@
 mod app;
 pub mod gsi;
+pub mod log;
 
 use app::App;
 

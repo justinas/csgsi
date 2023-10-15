@@ -8,7 +8,9 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.75"
 axum = { version = "0.6.20", features = ["ws"] }
+csgsi_shared = { path = "../csgsi_shared" }
 futures = "0.3.28"
+serde_json = "1.0.107"
 tokio = { version = "1.32.0", features = ["full"] }
 tower-http = { version = "0.4.4", features = ["fs", "trace"] }
 tracing = "0.1.37"
