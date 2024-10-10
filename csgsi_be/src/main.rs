@@ -123,7 +123,7 @@ async fn main() {
 
     let (broadcaster, _rx) = broadcast::channel::<Message>(32);
 
-    let assets_dir = "./assets";
+    let assets_dir = std::env::var("CSGSI_ASSET_DIR").unwrap_or("./assets".into());
     let app = Router::new()
         .fallback_service(ServeDir::new(assets_dir).append_index_html_on_directories(true))
         .route("/gsi", post(gsi_handler))
