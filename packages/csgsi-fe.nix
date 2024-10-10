@@ -1,4 +1,4 @@
-{ src, rustPlatform, trunk-ng, wasm-bindgen-cli }:
+{ src, rustPlatform, binaryen, trunk, wasm-bindgen-cli, }:
 rustPlatform.buildRustPackage {
   pname = "csgsi-fe";
   version = "0.1.0";
@@ -8,11 +8,14 @@ rustPlatform.buildRustPackage {
     lockFile = ../Cargo.lock;
   };
 
-  nativeBuildInputs = [ trunk-ng wasm-bindgen-cli ];
+  TRUNK_SKIP_VERSION_CHECK = "true";
+
+  nativeBuildInputs = [ binaryen trunk wasm-bindgen-cli ];
+
   buildPhase = ''
     export HOME=$(mktemp -d) # trunk puts stuff in $XDG_CACHE_HOME or ~/.cache
     wasm-bindgen --version
-    trunk-ng build --offline --release csgsi_fe/index.html
+    trunk build --offline --release csgsi_fe/index.html
   '';
 
   installPhase = ''
